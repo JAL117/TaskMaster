@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.taskmaster"
-        minSdk = 24
+        minSdk = 34
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -61,5 +61,12 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics:1.6.6")
     implementation("androidx.compose.ui:ui-tooling-preview:1.6.6")
     implementation("androidx.compose.material3:material3:1.2.1")
+
+    // Coil para cargar imágenes desde URI
+    implementation("io.coil-kt:coil-compose:2.6.0") // Usa la última versión
+
+    // Accompanist para manejo de permisos (opcional pero recomendado)
+    implementation("com.google.accompanist:accompanist-permissions:0.34.0") // Usa la última versión compatible con tu versión de Compose
+
 
 }

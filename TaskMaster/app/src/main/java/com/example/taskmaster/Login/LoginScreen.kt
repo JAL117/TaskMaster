@@ -1,50 +1,48 @@
 package com.example.taskmaster.Login // Asegúrate que este sea tu paquete
 
-import androidx.compose.runtime.* // Para @Composable, remember, collectAsState, LaunchedEffect, etc.
+// --- Añade estas importaciones ---
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import com.example.taskmaster.R // <-- Importa la clase R de tu proyecto
+
+// Tus otras importaciones...
+import androidx.compose.runtime.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.taskmaster.ui.theme.TaskMasterTheme // Ajusta si tu tema está en otro lugar
+import com.example.taskmaster.ui.theme.TaskMasterTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    // Ya no recibe NavController. En su lugar, recibe lambdas
-    // para comunicar eventos hacia afuera (a quien lo llame, ej: MainActivity).
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit,
-    // Instancia del ViewModel
     loginViewModel: LoginViewModel = viewModel()
 ) {
-    // Observa el estado del ViewModel
     val email by loginViewModel.email.collectAsState()
     val password by loginViewModel.password.collectAsState()
     val isLoading by loginViewModel.isLoading.collectAsState()
     val loginState by loginViewModel.loginState.collectAsState()
-
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Efecto para reaccionar a cambios en loginState (éxito o error)
     LaunchedEffect(loginState) {
+        // ... (tu lógica de LaunchedEffect sigue igual)
         when (val state = loginState) {
             is LoginViewModel.LoginResult.Success -> {
-                // Llama al callback para notificar el éxito
                 onLoginSuccess()
-                loginViewModel.resetLoginState() // Resetea estado en ViewModel
+                loginViewModel.resetLoginState()
             }
             is LoginViewModel.LoginResult.Error -> {
-                // Muestra el error en el Snackbar
                 snackbarHostState.showSnackbar(
                     message = state.message,
                     duration = SnackbarDuration.Short
                 )
-                loginViewModel.resetLoginState() // Resetea estado en ViewModel
+                loginViewModel.resetLoginState()
             }
             is LoginViewModel.LoginResult.Idle -> { /* No hacer nada */ }
         }
@@ -61,13 +59,30 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
+
+            // --- INICIO: Añadir Logo ---
+            Image(
+                // Reemplaza 'app_logo' con el nombre EXACTO de tu archivo en res/drawable
+                painter = painterResource(id = R.drawable.app_logo),
+                contentDescription = "Logo de TaskMaster", // Texto para accesibilidad
+                modifier = Modifier
+                    .size(150.dp) // Ajusta el tamaño según necesites
+                // .padding(bottom = 16.dp) // Espacio opcional debajo del logo
+            )
+
+            // Añade un espacio entre el logo y el título si lo deseas
+            Spacer(modifier = Modifier.height(24.dp))
+            // --- FIN: Añadir Logo ---
+
+
+            Text( // El título que ya tenías
                 text = "TaskMaster",
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.primary
             )
 
-            Spacer(modifier = Modifier.height(40.dp))
+            // Ajusta este Spacer si añadiste padding al logo o quieres más/menos espacio
+            Spacer(modifier = Modifier.height(32.dp))
 
             OutlinedTextField(
                 value = email,
@@ -110,7 +125,6 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Llama al callback para ir a Registro
             TextButton(
                 onClick = {
                     if (!isLoading) {
@@ -120,7 +134,6 @@ fun LoginScreen(
             ) {
                 Text("¿No tienes cuenta? Regístrate")
             }
-            // Podrías añadir aquí "Olvidaste contraseña" con otro callback si es necesario
         }
     }
 }
@@ -130,7 +143,6 @@ fun LoginScreen(
 @Composable
 fun LoginScreenPreview() {
     TaskMasterTheme {
-        // Proporcionamos lambdas vacías para la previsualización
         LoginScreen(
             onLoginSuccess = { println("Preview: Login Success!") },
             onNavigateToRegister = { println("Preview: Navigate to Register!") }
