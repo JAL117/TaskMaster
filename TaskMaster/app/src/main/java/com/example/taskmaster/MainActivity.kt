@@ -1,26 +1,34 @@
 package com.example.taskmaster // Asegúrate que este sea tu paquete raíz
 
+// --- IMPORTACIONES COMPLETAS Y NECESARIAS ---
+import android.os.Build // Necesario para @RequiresApi
 import android.os.Bundle
-import android.util.Log // Import necesario para los Logs de depuración
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Column // Import necesario para Placeholders
+import androidx.annotation.RequiresApi // Necesario por AddEditTaskScreen y TaskListScreen (indirectamente por TaskItem)
+import androidx.compose.foundation.layout.Arrangement // Usado en el placeholder eliminado, podría quitarse si no se usa más
+import androidx.compose.foundation.layout.Column      // Usado en el placeholder eliminado
+import androidx.compose.foundation.layout.Spacer       // Usado en el placeholder eliminado
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding // Import necesario para Placeholders
-import androidx.compose.material3.Button // Import necesario para Placeholders
+import androidx.compose.foundation.layout.height      // Usado en el placeholder eliminado
+import androidx.compose.foundation.layout.padding     // Usado en el placeholder eliminado
+import androidx.compose.material3.Button        // Usado en el placeholder eliminado
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text // Import necesario para Placeholders
+import androidx.compose.material3.Text          // Usado en el placeholder eliminado
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment    // Usado en el placeholder eliminado
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp // Import necesario para Placeholders
-import com.example.taskmaster.Login.LoginScreen // Importa tu pantalla de Login
-import com.example.taskmaster.Register.RegisterScreen // Importa tu pantalla de Registro
-import com.example.taskmaster.Menu.MenuScreen // <-- IMPORTA LA PANTALLA DE MENÚ
-// Importa tus otras pantallas cuando las tengas
-// import com.example.taskmaster.TaskList.TaskListScreen
-// import com.example.taskmaster.AddEditTask.AddEditTaskScreen
-import com.example.taskmaster.ui.theme.TaskMasterTheme // Importa tu tema
+import androidx.compose.ui.unit.dp         // Usado en el placeholder eliminado
+import com.example.taskmaster.AddEditTask.AddEditTaskScreen // Importa AddEditTaskScreen REAL
+import com.example.taskmaster.Login.LoginScreen             // Importa LoginScreen REAL
+import com.example.taskmaster.Menu.MenuScreen               // Importa MenuScreen REAL
+import com.example.taskmaster.Register.RegisterScreen         // Importa RegisterScreen REAL
+import com.example.taskmaster.TaskList.TaskListScreen       // <-- IMPORTA TaskListScreen REAL
+import com.example.taskmaster.ui.theme.TaskMasterTheme        // Importa tu tema
+// --- FIN IMPORTACIONES ---
+
 
 // ===========================================================
 // 1. Definición de las Pantallas Posibles (Sealed Class)
@@ -29,14 +37,16 @@ sealed class Screen(val route: String) {
     object Login : Screen("login")
     object Register : Screen("register")
     object TaskList : Screen("task_list")
-    data class AddEditTask(val taskId: String? = null) : Screen("add_edit_task")
-    object Menu : Screen("menu") // Asegúrate que está definido
+    data class AddEditTask(val taskId: String? = null) : Screen("add_edit_task") // Para añadir o editar
+    object Menu : Screen("menu")
 }
 
 // ===========================================================
 // 2. Clase Principal de la Actividad
 // ===========================================================
 class MainActivity : ComponentActivity() {
+    // Es necesario aquí si tu minSdk < 26 y usas java.time en alguna pantalla llamada directamente
+    // @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -45,6 +55,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+                    // Llama al Composable que maneja la navegación
                     TaskMasterApp()
                 }
             }
@@ -55,27 +66,25 @@ class MainActivity : ComponentActivity() {
 // ===========================================================
 // 3. Composable Principal que Gestiona la Navegación Manual
 // ===========================================================
+// Añade la anotación aquí porque llama a Composables que la requieren (AddEditTaskScreen)
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun TaskMasterApp() {
+    // Estado que controla qué pantalla se muestra
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Login) }
 
+    // Log para depurar qué pantalla se está mostrando
     Log.d("TaskMasterApp", "Recomposing. Current Screen: ${currentScreen::class.simpleName}")
 
+    // El 'when' decide qué Composable mostrar según el estado actual
     when (val screen = currentScreen) {
 
         // ---- Caso: Pantalla de Login ----
         is Screen.Login -> {
             Log.d("TaskMasterApp", "Displaying LoginScreen")
             LoginScreen(
-                // **CAMBIO:** Va al Menú después del login
-                onLoginSuccess = {
-                    Log.d("TaskMasterApp", "Login Success -> Navigate to Menu")
-                    currentScreen = Screen.Menu
-                },
-                onNavigateToRegister = {
-                    Log.d("TaskMasterApp", "Login -> Navigate to Register")
-                    currentScreen = Screen.Register
-                }
+                onLoginSuccess = { currentScreen = Screen.Menu }, // Va al Menú
+                onNavigateToRegister = { currentScreen = Screen.Register } // Va a Registro
             )
         }
 
@@ -83,95 +92,75 @@ fun TaskMasterApp() {
         is Screen.Register -> {
             Log.d("TaskMasterApp", "Displaying RegisterScreen")
             RegisterScreen(
-                // **CAMBIO:** Va al Menú después del registro
-                onRegisterSuccess = {
-                    Log.d("TaskMasterApp", "Register Success -> Navigate to Menu")
-                    currentScreen = Screen.Menu
-                },
-                onNavigateBackToLogin = {
-                    Log.d("TaskMasterApp", "Register -> Navigate back to Login")
-                    currentScreen = Screen.Login
-                }
+                onRegisterSuccess = { currentScreen = Screen.Menu }, // Va al Menú
+                onNavigateBackToLogin = { currentScreen = Screen.Login } // Vuelve a Login
             )
         }
 
         // ---- Caso: Pantalla de Menú ----
         is Screen.Menu -> {
             Log.d("TaskMasterApp", "Displaying MenuScreen")
-            // **CAMBIO:** Llama a MenuScreen real
             MenuScreen(
-                onNavigateToTaskList = {
-                    Log.d("TaskMasterApp", "Menu -> Navigate to TaskList")
-                    currentScreen = Screen.TaskList
-                },
-                onNavigateToAddTask = {
-                    Log.d("TaskMasterApp", "Menu -> Navigate to AddTask")
-                    currentScreen = Screen.AddEditTask(taskId = null)
-                },
+                onNavigateToTaskList = { currentScreen = Screen.TaskList }, // Va a Lista REAL
+                onNavigateToAddTask = { currentScreen = Screen.AddEditTask(taskId = null) }, // Va a Añadir Tarea REAL
                 onLogout = {
-                    Log.d("TaskMasterApp", "Menu -> Logout -> Navigate to Login")
-                    // Aquí limpiarías datos de sesión si los tuvieras
-                    currentScreen = Screen.Login
+                    // Aquí limpiarías sesión
+                    currentScreen = Screen.Login // Vuelve a Login
                 }
             )
         }
 
-        // ---- Caso: Pantalla Lista de Tareas (Placeholder) ----
+        // ---- Caso: Pantalla Añadir/Editar Tarea (USA LA REAL) ----
+        is Screen.AddEditTask -> {
+            Log.d("TaskMasterApp", "Displaying AddEditTaskScreen for task: ${screen.taskId}")
+            AddEditTaskScreen(
+                // taskId = screen.taskId, // Descomenta para edición
+                onTaskSaved = {
+                    Log.d("TaskMasterApp", "Task Saved -> Navigate to TaskList")
+                    currentScreen = Screen.TaskList // Vuelve a la lista REAL
+                },
+                onNavigateBack = {
+                    Log.d("TaskMasterApp", "AddEditTask -> Navigate Back")
+                    currentScreen = Screen.Menu // Vuelve al Menú (o a TaskList si prefieres)
+                }
+            )
+        }
+
+        // ---- Caso: Pantalla Lista de Tareas (USA LA REAL) ----
         is Screen.TaskList -> {
-            Log.d("TaskMasterApp", "Displaying TaskListScreen (Placeholder)")
-            TaskListScreenPlaceholder(
-                onNavigateToAddTask = { currentScreen = Screen.AddEditTask(taskId = null) },
-                onNavigateToEditTask = { taskId -> currentScreen = Screen.AddEditTask(taskId = taskId) },
-                // Podrías necesitar un botón para volver al menú desde aquí, o no.
-                onNavigateToMenu = { currentScreen = Screen.Menu },
+            Log.d("TaskMasterApp", "Displaying TaskListScreen")
+            // *** CAMBIO CLAVE: Llama a TaskListScreen real ***
+            TaskListScreen(
+                onNavigateToAddTask = {
+                    Log.d("TaskMasterApp", "TaskList -> Navigate to AddTask")
+                    currentScreen = Screen.AddEditTask(taskId = null) // Va a Añadir Tarea REAL
+                },
+                onNavigateToEditTask = { taskId ->
+                    Log.d("TaskMasterApp", "TaskList -> Navigate to EditTask $taskId")
+                    currentScreen = Screen.AddEditTask(taskId = taskId) // Va a Editar Tarea REAL (pasando ID)
+                },
+                onNavigateToMenu = {
+                    Log.d("TaskMasterApp", "TaskList -> Navigate to Menu")
+                    currentScreen = Screen.Menu // Vuelve al Menú
+                },
                 onLogout = {
                     Log.d("TaskMasterApp", "TaskList Logout -> Navigate to Login")
                     // Limpiar sesión
-                    currentScreen = Screen.Login
+                    currentScreen = Screen.Login // Vuelve a Login
                 }
             )
         }
-
-        // ---- Caso: Pantalla Añadir/Editar Tarea (Placeholder) ----
-        is Screen.AddEditTask -> {
-            Log.d("TaskMasterApp", "Displaying AddEditTaskScreen (Placeholder) for task: ${screen.taskId}")
-            AddEditTaskScreenPlaceholder(
-                taskId = screen.taskId,
-                onTaskSaved = { currentScreen = Screen.TaskList },
-                onNavigateBack = { currentScreen = Screen.TaskList } // Vuelve a la lista al cancelar/guardar
-            )
-        }
-    }
-}
+    } // Fin when
+} // Fin TaskMasterApp
 
 // ===========================================================
-// 4. PLACEHOLDERS para las pantallas aún no implementadas
-//    (TaskList, AddEditTask)
+// 4. PLACEHOLDERS (YA NO QUEDAN PANTALLAS POR IMPLEMENTAR EN ESTE FLUJO)
 // ===========================================================
 
-@Composable
-fun TaskListScreenPlaceholder(
-    onNavigateToAddTask: () -> Unit,
-    onNavigateToEditTask: (String) -> Unit,
-    onNavigateToMenu: () -> Unit,
-    onLogout: () -> Unit
-) {
-    Column(modifier = Modifier.padding(16.dp)) {
-        Text("Task List Screen Placeholder")
-        Button(onClick = onNavigateToAddTask) { Text("Add New Task") }
-        Button(onClick = { onNavigateToEditTask("task123") }) { Text("Edit Task 'task123'") }
-        Button(onClick = onNavigateToMenu) { Text("Go back to Menu") } // Botón para volver al menú
-        Button(onClick = onLogout) { Text("Logout") }
-    }
-}
+// --- ELIMINADO EL TaskListScreenPlaceholder ---
+// @Composable
+// fun TaskListScreenPlaceholder(...) { ... }
 
-@Composable
-fun AddEditTaskScreenPlaceholder(taskId: String?, onTaskSaved: () -> Unit, onNavigateBack: () -> Unit) {
-    Column(modifier = Modifier.padding(16.dp)) {
-        Text(if (taskId == null) "Add New Task Placeholder" else "Edit Task $taskId Placeholder")
-        Button(onClick = onTaskSaved) { Text("Save Task") }
-        Button(onClick = onNavigateBack) { Text("Cancel / Back to Task List") }
-    }
-}
-
-// Ya no se necesita el MenuScreenPlaceholder
+// --- ELIMINADO EL AddEditTaskScreenPlaceholder ---
+// @Composable
+// fun AddEditTaskScreenPlaceholder(...) { ... }

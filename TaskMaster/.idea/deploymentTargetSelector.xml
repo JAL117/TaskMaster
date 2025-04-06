@@ -4,6 +4,14 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
+        <DropdownSelection timestamp="2025-04-06T02:35:46.947817596Z">
+          <Target type="DEFAULT_BOOT">
+            <handle>
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=R5CT42TTDZV" />
+            </handle>
+          </Target>
+        </DropdownSelection>
+        <DialogSelection />
       </SelectionState>
       <SelectionState runConfigName="RegisterScreenPreview">
         <option name="selectionMode" value="DROPDOWN" />
@@ -16,10 +24,10 @@
       </SelectionState>
       <SelectionState runConfigName="AddEditTaskScreenPreview">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-04-06T02:25:35.530557235Z">
+        <DropdownSelection timestamp="2025-04-06T02:34:49.531355059Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="PhysicalDevice" identifier="serial=R5CT42TTDZV" />
+              <DeviceId pluginId="LocalEmulator" identifier="path=/home/jal/.android/avd/Small_Phone.avd" />
             </handle>
           </Target>
         </DropdownSelection>
