@@ -1,4 +1,4 @@
-package com.example.taskmaster.TaskList
+package com.example.taskmaster.Task_List
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn

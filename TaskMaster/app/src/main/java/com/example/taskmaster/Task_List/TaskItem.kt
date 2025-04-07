@@ -1,4 +1,4 @@
-package com.example.taskmaster.TaskList // Asegúrate que este sea tu paquete
+package com.example.taskmaster.Task_List
 
 // --- IMPORTACIONES COMPLETAS Y NECESARIAS ---
 import android.os.Build // Necesario para @RequiresApi
@@ -23,7 +23,6 @@ import java.time.LocalDateTime // Importado
 import java.time.LocalTime // Necesario para la Preview
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-// --- FIN IMPORTACIONES ---
 
 
 // --- Función para obtener Color por Prioridad (Sin cambios) ---
@@ -88,7 +87,6 @@ fun TaskItem(
 }
 
 
-// --- Previsualización del Item (CORREGIDA) ---
 @RequiresApi(Build.VERSION_CODES.O)
 @Preview(showBackground = true)
 @Composable

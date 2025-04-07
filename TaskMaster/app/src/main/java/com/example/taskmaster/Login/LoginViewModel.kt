@@ -1,108 +1,127 @@
-package com.example.taskmaster.Login // Asegúrate que el paquete sea el correcto
+package com.example.taskmaster.Login
 
-// --- IMPORTACIONES ---
+import android.content.Context
+import android.util.Log
+import android.util.Patterns
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.delay // Aún necesaria si quieres revertir fácilmente
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.example.taskmaster.APIService.ApiService
+import com.example.taskmaster.APIService.IDEncryptionManager
+import com.example.taskmaster.data.model.LoginRes
+import com.example.taskmaster.APIService.RetroClient
+import com.example.taskmaster.data.model.LoginReq
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
-// --- FIN IMPORTACIONES ---
+import retrofit2.Call
+import retrofit2.Response
 
-class LoginViewModel : ViewModel() {
+class LoginViewModel(private val context: Context) : ViewModel() {
 
-    // --- Estados Internos (Privados y Mutables) ---
-    private val _email = MutableStateFlow("")
-    private val _password = MutableStateFlow("")
-    private val _isLoading = MutableStateFlow(false) // Mantenemos isLoading por si quieres mostrarlo brevemente
-    // Estado para comunicar el resultado del login a la UI (éxito, error, idle)
-    private val _loginState = MutableStateFlow<LoginResult>(LoginResult.Idle)
+    private val idEncryptionManager = IDEncryptionManager(context)
 
-    // --- Estados Expuestos (Públicos e Inmutables - StateFlow) ---
-    val email: StateFlow<String> = _email.asStateFlow()
-    val password: StateFlow<String> = _password.asStateFlow()
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-    val loginState: StateFlow<LoginResult> = _loginState.asStateFlow()
+    var email by mutableStateOf("")
+        private set
 
-    // --- Manejadores de Eventos de la UI ---
-    // Estas funciones son llamadas por la UI (LoginScreen)
+    var password by mutableStateOf("")
+        private set
 
-    fun onEmailChange(newEmail: String) {
-        // Actualiza el valor del StateFlow del email
-        _email.value = newEmail
+    var loginEnabled by mutableStateOf(false)
+        private set
+
+    private val _navigateToHome = MutableSharedFlow<Boolean>()
+    val navigateToHome: SharedFlow<Boolean> = _navigateToHome.asSharedFlow()
+
+    var errorEmail by mutableStateOf<String?>(null)
+        private set
+
+    var isLoading by mutableStateOf(false)
+        private set
+
+    var loginError by mutableStateOf<String?>(null)
+        private set
+
+
+
+    fun onEmailChanged(newEmail: String) {
+        email = newEmail
+        validateEmail()
+        validateLogin()
+
     }
 
-    fun onPasswordChange(newPassword: String) {
-        // Actualiza el valor del StateFlow de la contraseña
-        _password.value = newPassword
+    fun onPasswordChanged(newPassword: String) {
+        password = newPassword
+        validateLogin()
     }
 
-    // --- FUNCIÓN onLoginClick MODIFICADA TEMPORALMENTE ---
-    fun onLoginClick() {
-        // Evita iniciar otro login si ya hay uno en progreso (opcional mantenerlo)
-        if (_isLoading.value) {
+    private fun validateEmail() {
+        errorEmail = if (email.isNotBlank() && !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            "Email no válido"
+        } else {
+            null
+        }
+    }
+
+    private fun validateLogin() {
+        loginEnabled = email.isNotBlank() && password.isNotBlank() && errorEmail == null
+    }
+
+    fun onLoginButtonClicked() {
+        if (!loginEnabled) {
             return
         }
 
-        // --- ** MODIFICACIÓN TEMPORAL: FORZAR ÉXITO ** ---
-        // Opcional: Mostrar brevemente el loading para feedback visual
-        // viewModelScope.launch {
-        //     _isLoading.value = true
-        //     delay(200) // Pequeña demora opcional
-        _loginState.value = LoginResult.Success("Navegación directa (temporal)")
-        //     _isLoading.value = false // Ocultar loading después de establecer Success
-        // }
-        // --- ** FIN MODIFICACIÓN TEMPORAL ** ---
+        isLoading = true
+        loginError = null
 
+        val credentials = LoginReq(email, password)
+        val call = RetroClient.instance.login(credentials)
 
-        /* --- CÓDIGO ORIGINAL COMENTADO (para referencia futura) ---
+        call.enqueue(object : retrofit2.Callback<LoginRes> {
+            override fun onResponse(call: Call<LoginRes>, response: Response<LoginRes>) {
+                isLoading = false
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    Log.d("LoginResponse", body.toString())
 
-        // Validación básica (puedes añadir validación de formato de email, etc.)
-        if (email.value.isBlank() || password.value.isBlank()) {
-             _loginState.value = LoginResult.Error("Por favor, ingresa email y contraseña.")
-            return
-        }
+                    if (body?.message == "Login exitoso") {
+                        val userId = body.user.clientID
 
-        viewModelScope.launch {
-            _isLoading.value = true
-            _loginState.value = LoginResult.Idle // Resetea cualquier estado de error/éxito previo
+                        if (true) {
+                            Log.d("UserId", "User ID: $userId")
 
-            // --- SIMULACIÓN DE LLAMADA AL MODELO (Repositorio/API) ---
-            try {
-                delay(1500) // Simula el tiempo de espera de una llamada de red
-                if (email.value.trim().equals("test@test.com", ignoreCase = true) && password.value == "1234") {
-                    // Simula un login exitoso
-                    _loginState.value = LoginResult.Success("¡Login exitoso!")
+                            idEncryptionManager.saveID(userId)
+
+                            viewModelScope.launch {
+                                _navigateToHome.emit(true)
+                            }
+                            Log.d("Login", "Login con exito")
+                        } else {
+                            loginError = "Inicio de sesión fallido: ID de usuario nulo"
+                            Log.e("Login", "Error, el ID de usuario llegó nulo")
+                        }
+
+                    } else {
+                        loginError = "Inicio de sesión fallido"
+                        Log.e("Login", "Error, el body llegó vacío")
+                    }
                 } else {
-                    // Simula credenciales inválidas
-                    _loginState.value = LoginResult.Error("Credenciales inválidas.")
+                    loginError = "Error del servidor: ${response.errorBody()?.string()}"
+                    Log.e("Login", "Error del servidor: ${response.errorBody()?.string()}")
                 }
-            } catch (e: Exception) {
-                 // Simula un error inesperado durante la llamada
-                _loginState.value = LoginResult.Error("Ocurrió un error: ${e.message}")
-            } finally {
-                // Este bloque se ejecuta siempre, haya éxito o error
-                _isLoading.value = false // Oculta el indicador de carga
             }
-            // --- FIN DE LA SIMULACIÓN ---
-        }
-        --- FIN CÓDIGO ORIGINAL COMENTADO --- */
 
-    } // Fin onLoginClick
-
-    // Función para que la UI pueda resetear el estado de 'loginState' después de consumirlo
-    // (ej. después de mostrar el Snackbar o navegar)
-    fun resetLoginState() {
-        _loginState.value = LoginResult.Idle
+            override fun onFailure(call: Call<LoginRes>, t: Throwable) {
+                isLoading = false
+                loginError = "Error en la conexión: ${t.message}"
+                Log.e("Login", "Error en la conexión: ${t.message}")
+            }
+        })
     }
 
-    // --- Clase Sellada para el Resultado del Login ---
-    // Define los posibles estados que el proceso de login puede tener
-    sealed class LoginResult {
-        object Idle : LoginResult() // Estado inicial o neutro
-        data class Success(val message: String? = null) : LoginResult() // Éxito, opcionalmente con mensaje/datos
-        data class Error(val message: String) : LoginResult() // Error, siempre con mensaje
-    }
-
-} // Fin clase LoginViewModel
+}

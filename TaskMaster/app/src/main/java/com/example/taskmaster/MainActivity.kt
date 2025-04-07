@@ -1,166 +1,170 @@
 package com.example.taskmaster // Asegúrate que este sea tu paquete raíz
 
-// --- IMPORTACIONES COMPLETAS Y NECESARIAS ---
-import android.os.Build // Necesario para @RequiresApi
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.annotation.RequiresApi // Necesario por AddEditTaskScreen y TaskListScreen (indirectamente por TaskItem)
-import androidx.compose.foundation.layout.Arrangement // Usado en el placeholder eliminado, podría quitarse si no se usa más
-import androidx.compose.foundation.layout.Column      // Usado en el placeholder eliminado
-import androidx.compose.foundation.layout.Spacer       // Usado en el placeholder eliminado
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height      // Usado en el placeholder eliminado
-import androidx.compose.foundation.layout.padding     // Usado en el placeholder eliminado
-import androidx.compose.material3.Button        // Usado en el placeholder eliminado
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text          // Usado en el placeholder eliminado
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment    // Usado en el placeholder eliminado
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp         // Usado en el placeholder eliminado
-import com.example.taskmaster.AddEditTask.AddEditTaskScreen // Importa AddEditTaskScreen REAL
-import com.example.taskmaster.Login.LoginScreen             // Importa LoginScreen REAL
-import com.example.taskmaster.Menu.MenuScreen               // Importa MenuScreen REAL
-import com.example.taskmaster.Register.RegisterScreen         // Importa RegisterScreen REAL
-import com.example.taskmaster.TaskList.TaskListScreen       // <-- IMPORTA TaskListScreen REAL
-import com.example.taskmaster.ui.theme.TaskMasterTheme        // Importa tu tema
-// --- FIN IMPORTACIONES ---
+import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.example.taskmaster.Menu.MenuScreen
+import com.example.taskmaster.APIService.MyFirebaseMessagingService
+//import com.example.taskmaster.Add_Edit_Task.AddEditTaskScreen
+import com.example.taskmaster.Task_List.TaskListScreen
+import com.example.taskmaster.Login.LoginScreen
+import com.example.taskmaster.Register.RegisterScreen
+import com.google.firebase.messaging.FirebaseMessaging
+import com.example.taskmaster.ui.theme.TaskMasterTheme
 
 
-// ===========================================================
-// 1. Definición de las Pantallas Posibles (Sealed Class)
-// ===========================================================
-sealed class Screen(val route: String) {
-    object Login : Screen("login")
-    object Register : Screen("register")
-    object TaskList : Screen("task_list")
-    data class AddEditTask(val taskId: String? = null) : Screen("add_edit_task") // Para añadir o editar
-    object Menu : Screen("menu")
-}
-
-// ===========================================================
-// 2. Clase Principal de la Actividad
-// ===========================================================
 class MainActivity : ComponentActivity() {
-    // Es necesario aquí si tu minSdk < 26 y usas java.time en alguna pantalla llamada directamente
-    // @RequiresApi(Build.VERSION_CODES.O)
+
+    private val notificationService = MyFirebaseMessagingService()
+    private val REQUEST_CODE_POST_NOTIFICATIONS = 123
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContent {
+            val notificationMessage = remember { mutableStateOf("") }
+            // Usa la recolección del flujo con LaunchedEffect para un ciclo de vida seguro
+            LaunchedEffect(Unit) {
+                notificationService.receivedMessage.collect { (title, message) ->
+                    notificationMessage.value = "Título: $title, Mensaje: $message"
+                    Log.d("FCM_UI", "Mensaje de UI: ${notificationMessage.value}") // Log para depuración
+                }
+            }
+
             TaskMasterTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // Llama al Composable que maneja la navegación
-                    TaskMasterApp()
+
+                    Column {
+                        if (notificationMessage.value.isNotEmpty()) {
+                            Text(
+                                text = "Mensaje Push: ${notificationMessage.value}",
+                                modifier = Modifier.padding(16.dp)
+                            )
+                        }
+
+                        val navController = rememberNavController()
+                        NavHost(
+                            navController = navController,
+                            startDestination = "login_screen"
+                        ) {
+                            composable("login_screen") {
+                                LoginScreen(
+                                    navController = navController,
+                                    onLoginSuccess = {
+                                        checkAndRequestNotificationPermission()
+                                    }
+                                )
+                            }
+                            composable("register_screen") {
+                                RegisterScreen(navigateToLogin = {
+                                    navController.navigate("login_screen")
+                                })
+                            }
+                            composable("home_screen") {
+                                MenuScreen(navController = navController)
+                            }
+                            //composable("add_task_screen") {
+                            //    AddEditTaskScreen(navController = navController)
+                            //}
+                            //composable("task_list_screen") {
+                            //    TaskListScreen(navController = navController)
+                           // }
+                        }
+                    }
                 }
             }
         }
     }
+
+    private fun checkAndRequestNotificationPermission() {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            // El permiso no está garantizado, solicitarlo
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                REQUEST_CODE_POST_NOTIFICATIONS
+            )
+        } else {
+            // Si ya tenemos el permiso, obtenemos el token directamente
+            getToken()
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>, // Especifica el tipo como Array<String>
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        when (requestCode) {
+            REQUEST_CODE_POST_NOTIFICATIONS -> {
+                if (grantResults.isNotEmpty() &&
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED
+                ) {
+                    // Permiso concedido
+                    Log.d("FCM", "Permiso de notificaciones concedido")
+                    getToken()
+                } else {
+                    // Permiso denegado
+                    Log.d("FCM", "Permiso de notificaciones denegado")
+                    // Puedes mostrar un mensaje al usuario explicando por qué necesitas el permiso
+                }
+                return
+            }
+            else -> {
+                // Ignore all other requests.
+            }
+        }
+    }
+
+    private fun getToken(){
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                Log.w("FCM", "Fetching FCM registration token failed", task.exception)
+                return@addOnCompleteListener
+            }
+
+            // Get new FCM registration token
+            val token = task.result
+
+            // Log and toast
+            Log.d("FCM", "FCM Token: $token")
+            // Guarda este token y envíalo a tu servidor (NodeJS)
+            // para que puedas enviar notificaciones dirigidas a este dispositivo.
+            MyFirebaseMessagingService.sendRegistrationToServer(this, token)
+
+            //Toast.makeText(baseContext, token, Toast.LENGTH_SHORT).show()
+        }
+    }
 }
-
-// ===========================================================
-// 3. Composable Principal que Gestiona la Navegación Manual
-// ===========================================================
-// Añade la anotación aquí porque llama a Composables que la requieren (AddEditTaskScreen)
-@RequiresApi(Build.VERSION_CODES.O)
-@Composable
-fun TaskMasterApp() {
-    // Estado que controla qué pantalla se muestra
-    var currentScreen by remember { mutableStateOf<Screen>(Screen.Login) }
-
-    // Log para depurar qué pantalla se está mostrando
-    Log.d("TaskMasterApp", "Recomposing. Current Screen: ${currentScreen::class.simpleName}")
-
-    // El 'when' decide qué Composable mostrar según el estado actual
-    when (val screen = currentScreen) {
-
-        // ---- Caso: Pantalla de Login ----
-        is Screen.Login -> {
-            Log.d("TaskMasterApp", "Displaying LoginScreen")
-            LoginScreen(
-                onLoginSuccess = { currentScreen = Screen.Menu }, // Va al Menú
-                onNavigateToRegister = { currentScreen = Screen.Register } // Va a Registro
-            )
-        }
-
-        // ---- Caso: Pantalla de Registro ----
-        is Screen.Register -> {
-            Log.d("TaskMasterApp", "Displaying RegisterScreen")
-            RegisterScreen(
-                onRegisterSuccess = { currentScreen = Screen.Menu }, // Va al Menú
-                onNavigateBackToLogin = { currentScreen = Screen.Login } // Vuelve a Login
-            )
-        }
-
-        // ---- Caso: Pantalla de Menú ----
-        is Screen.Menu -> {
-            Log.d("TaskMasterApp", "Displaying MenuScreen")
-            MenuScreen(
-                onNavigateToTaskList = { currentScreen = Screen.TaskList }, // Va a Lista REAL
-                onNavigateToAddTask = { currentScreen = Screen.AddEditTask(taskId = null) }, // Va a Añadir Tarea REAL
-                onLogout = {
-                    // Aquí limpiarías sesión
-                    currentScreen = Screen.Login // Vuelve a Login
-                }
-            )
-        }
-
-        // ---- Caso: Pantalla Añadir/Editar Tarea (USA LA REAL) ----
-        is Screen.AddEditTask -> {
-            Log.d("TaskMasterApp", "Displaying AddEditTaskScreen for task: ${screen.taskId}")
-            AddEditTaskScreen(
-                // taskId = screen.taskId, // Descomenta para edición
-                onTaskSaved = {
-                    Log.d("TaskMasterApp", "Task Saved -> Navigate to TaskList")
-                    currentScreen = Screen.TaskList // Vuelve a la lista REAL
-                },
-                onNavigateBack = {
-                    Log.d("TaskMasterApp", "AddEditTask -> Navigate Back")
-                    currentScreen = Screen.Menu // Vuelve al Menú (o a TaskList si prefieres)
-                }
-            )
-        }
-
-        // ---- Caso: Pantalla Lista de Tareas (USA LA REAL) ----
-        is Screen.TaskList -> {
-            Log.d("TaskMasterApp", "Displaying TaskListScreen")
-            // *** CAMBIO CLAVE: Llama a TaskListScreen real ***
-            TaskListScreen(
-                onNavigateToAddTask = {
-                    Log.d("TaskMasterApp", "TaskList -> Navigate to AddTask")
-                    currentScreen = Screen.AddEditTask(taskId = null) // Va a Añadir Tarea REAL
-                },
-                onNavigateToEditTask = { taskId ->
-                    Log.d("TaskMasterApp", "TaskList -> Navigate to EditTask $taskId")
-                    currentScreen = Screen.AddEditTask(taskId = taskId) // Va a Editar Tarea REAL (pasando ID)
-                },
-                onNavigateToMenu = {
-                    Log.d("TaskMasterApp", "TaskList -> Navigate to Menu")
-                    currentScreen = Screen.Menu // Vuelve al Menú
-                },
-                onLogout = {
-                    Log.d("TaskMasterApp", "TaskList Logout -> Navigate to Login")
-                    // Limpiar sesión
-                    currentScreen = Screen.Login // Vuelve a Login
-                }
-            )
-        }
-    } // Fin when
-} // Fin TaskMasterApp
-
-// ===========================================================
-// 4. PLACEHOLDERS (YA NO QUEDAN PANTALLAS POR IMPLEMENTAR EN ESTE FLUJO)
-// ===========================================================
-
-// --- ELIMINADO EL TaskListScreenPlaceholder ---
-// @Composable
-// fun TaskListScreenPlaceholder(...) { ... }
-
-// --- ELIMINADO EL AddEditTaskScreenPlaceholder ---
-// @Composable
-// fun AddEditTaskScreenPlaceholder(...) { ... }
